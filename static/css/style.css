@@ -4,7 +4,7 @@
     padding: 0;
     box-sizing: border-box;
 }
-
+ 
 body {
     background-color: #0D0F14;
     color: #ffffff;
@@ -46,12 +46,12 @@ main {
 }
 .loginer > button{
     color: white;
-    background-color: black;
+    background-color: #1B3F3F;
 }
 
 .loginer > button:hover{
     color: black;
-    background-color: white;
+    background-color: #096565;
 }
 
 /* Шапка навигации */
@@ -80,24 +80,24 @@ nav > a:hover{
     height: 100vh;
 }
 .contact{
+    overflow-y: auto;
     flex: 1;
     background-color: #0D0F14;
-    border-right: 1px solid #444;
     flex-direction: column;
 }
 .contact-button{
-    color: black;
-    padding: 2vh;
-    border-bottom: solid 1px black;
+    color: #A5A5A5;
+    padding: 1vh;
     text-decoration: none;
 }
 .contact-button > *{
-    color: black;
-    padding: 2vh;
+    color: #A5A5A5;
+    padding: 1vh;
     border: solid 0px black;
     text-decoration: none;
     border-radius: 10px;
     background-color: #1B3F3F;
+    font-size: 16px;
 }
 .contact-button > *:hover{
     color: white;
@@ -115,7 +115,7 @@ nav > a:hover{
     background-color: #096565;
 }
 .message {
-    flex: 3;                 /* Занимает 2 части (66%) */
+    flex: 3;
     background-color: #0A1926;
     padding: 20px;
     display: flex;
@@ -146,12 +146,16 @@ nav > a:hover{
     flex:8;
     color: #A5A5A5;
 }
-.messages-list{
+.messages-list {
     overflow-y: auto;
     height: 100vh;
-    margin-bottom:10px;
+    margin-bottom: 10px;
     border-radius: 10px;
     background-color: #0D0F14;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    box-sizing: border-box;
 }
 
 .incoming {
