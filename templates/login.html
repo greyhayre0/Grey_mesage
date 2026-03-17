@@ -5,17 +5,56 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <header>
-
-    </header>
-
+    <script>
+    async function sendRequest(action) {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const messageDiv = document.getElementById('result');
+        
+        if (!username || !password) {
+            showMessage('Заполните все поля!', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/${action}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                if (data.redirect) {
+                    window.location.href = data.redirect;
+                }
+            } else {
+                showMessage(data.detail || 'Ошибка', 'error');
+            }
+        } catch (error) {
+            showMessage('Ошибка соединения с сервером', 'error');
+        }
+    }
+    
+    function showMessage(text, type) {
+        const messageDiv = document.getElementById('result');
+        messageDiv.innerHTML = text;
+        messageDiv.className = `result ${type}`;
+    }
+    </script>
     <main>
         <div class="loginer">
-            <input type="text" placeholder="Введите ваш логин">
-            <input type="password" placeholder="Введите пароль">
-            <button>войти</button>
-            <button>регистрация</button>
-
+            <input type="text" id="username" placeholder="Введите ваш логин">
+            <input type="password" id="password" placeholder="Введите пароль">
+            <button onclick="sendRequest('login')">войти</button>
+            <button onclick="sendRequest('register')">регистрация</button>
+            <div id="result" class="result"></div>
         </div>
     </main>
 
