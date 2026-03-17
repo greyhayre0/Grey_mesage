@@ -11,6 +11,7 @@ from typing import Optional
 from fastapi.staticfiles import StaticFiles
 from typing import Optional, List
 import logging
+import json
 
 # Импортируем ваши модели
 from models import Base, Users, Chats, Messages, ChatParticipants
@@ -566,35 +567,24 @@ async def get_user_info(user: Users = Depends(get_current_user)):
         "created_at": user.created_at.isoformat(),
         "last_seen": user.last_seen.isoformat() if user.last_seen else None
     }
+#################################################################################
 
-# Пример защищенного API маршрута
-@app.get("/api/user/info")
-async def get_user_info(user: Users = Depends(get_current_user)):
+@app.get("/nas", response_class=HTMLResponse)
+async def messager(request: Request, user: Users = Depends(get_current_user)):
     if not user:
-        raise HTTPException(status_code=401, detail="Не авторизован")
+        # Не авторизован - редирект на логин
+        return RedirectResponse(url="/", status_code=302)
     
-    return {
-        "id": user.id,
-        "username": user.username,
-        "nickname": user.nickname,
-        "created_at": user.created_at,
-        "last_seen": user.last_seen
-    }
+    return templates.TemplateResponse(
+        "nas.html", 
+        {
+            "request": request, 
+            "user_id": user.id,           # Добавлено
+            "username": user.username,     # Добавлено
+            "nickname": user.nickname      # Добавлено
+        }
+    )
 
-# Для отладки - посмотреть активные сессии
-@app.get("/debug/sessions")
-async def debug_sessions():
-    return {
-        "active_sessions": len(sessions),
-        "sessions": [
-            {
-                "username": data['username'],
-                "created_at": data['created_at'],
-                "age_seconds": (datetime.utcnow() - data['created_at']).seconds
-            }
-            for data in sessions.values()
-        ]
-    }
 
 if __name__ == "__main__":
     import uvicorn

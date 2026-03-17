@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Хранилище</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/messager">Сообщения</a>
+            <a href="/nas" style="background-color: #096565;">Хранилище</a>
+            <a href="#" onclick="logout()">выйти</a>
+        </nav>
+    </header>
+
+    <main>
+        <div class="chat" style="height: calc(100vh - 5vh);">
+            <!-- Левая панель с папками -->
+            <div class="contact" style="flex: 1;">
+                <div class="contact-button">
+                    <button onclick="createFolder()">+ Новая папка</button>
+                </div>
+                <div class="contact-list" id="foldersList">
+                    <div class="contact-name active" onclick="navigateTo(null)">
+                        <a>Корневая папка</a>
+                    </div>
+                    <!-- Сюда будут загружаться папки -->
+                </div>
+            </div>
+            
+            <!-- Правая панель с файлами -->
+            <div class="message" style="flex: 3; padding: 1vh;">
+                <!-- Текущий путь -->
+                <div class="current-path" id="currentPath">
+                    Корневая папка
+                </div>
+                
+                <!-- Список файлов -->
+                <div class="messages-list" id="filesList" style="gap: 0; padding: 0;">
+                    <!-- Сюда будут загружаться файлы и папки -->
+                </div>
+                
+                <!-- Поле загрузки файла -->
+                <div class="message-input" style="margin-top: 1vh;">
+                    <input type="file" id="fileUpload" style="display: none;" multiple onchange="uploadFiles()">
+                    <button onclick="document.getElementById('fileUpload').click()">📎 Загрузить</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Модальное окно создания папки -->
+    <dialog id="folderModal">
+        <h3>Создать папку</h3>
+        <input type="text" id="folderName" placeholder="Название папки">
+        <div>
+            <button onclick="createFolderConfirm()">Создать</button>
+            <button onclick="closeFolderModal()">Отмена</button>
+        </div>
+    </dialog>
+</body>
+</html>
