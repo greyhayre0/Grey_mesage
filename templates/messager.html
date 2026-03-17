@@ -5,39 +5,293 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <script></script>
     <header>
         <nav>
             <a href="#">Сообщения</a>
             <a href="#">Хранилище</a>
-            <a href="#">выйти</a>
+            <a href="#" onclick="logout()">выйти</a>
         </nav>
     </header>
-    
+
     <main>
         <div class="chat">
             <div class="contact">
                 <div class="contact-button">
-                    <button>+</button>
+                    <button id="openModal">+</button>
                 </div>
-                <div class="contact-name">
-                    <a>Никнэйм</a>
+                <div class="contact-list" id="contactList">
+                    <!-- Сюда загружаются чаты -->
                 </div>
-
             </div>
+            
             <div class="message">
-                <div class="messages-list">
-                    <div class="incoming">Никнэйм: Привет!</div>
-                    <div class="outgoing">Никнэйм: Привет, как дела?</div>
+                <div class="messages-list" id="messagesList">
+                    <!-- Сюда загружаются сообщения -->
                 </div>
-                <div class="message-input">
-                    <input type="text" placeholder="Введи сообщение" >
-                    <button>✉︎</button>
-                    <button>⛓︎</button>
+                <div class="message-input" id="messageInputArea" style="display: none;">
+                    <input type="text" id="messageText" placeholder="Введи сообщение" onkeypress="handleKeyPress(event)">
+                    <button onclick="sendMessage()">✉︎</button>
+                    <button onclick="attachFile()">⛓︎</button>
                 </div>
             </div>
-    </div>
+        </div>
     </main>
 
+    <!--Всплывающее окно нового контакта-->
+    <dialog id="myModal">
+        <h3>Добавить контакт</h3>
+        <input type="text" id="searchNickname" placeholder="Введите никнейм">
+        <div id="searchResults" style="margin: 10px 0; max-height: 150px; overflow-y: auto;"></div>
+        <button id="saveModal">Сохранить</button>
+        <button id="closeModal">Закрыть</button>
+    </dialog>
+
+    <script>
+        // Данные текущего пользователя (приходят от сервера)
+        const currentUser = {
+            id: {{ user_id|tojson }},
+            username: {{ username|tojson }},
+            nickname: {{ nickname|tojson }}
+        };
+
+        let currentChatId = null;
+        let selectedUserId = null;
+        let ws = null;
+
+        // Загрузка чатов при старте
+        document.addEventListener('DOMContentLoaded', () => {
+            loadChats();
+        });
+
+        // Загрузка списка чатов
+        async function loadChats() {
+            try {
+                const response = await fetch('/api/chats');
+                const chats = await response.json();
+                
+                const contactList = document.getElementById('contactList');
+                contactList.innerHTML = '';
+                
+                if (chats.length === 0) {
+                    contactList.innerHTML = '<div class="contact-name"><a>Нет чатов</a></div>';
+                    return;
+                }
+                
+                chats.forEach(chat => {
+                    const chatDiv = document.createElement('div');
+                    chatDiv.className = 'contact-name';
+                    chatDiv.style.cursor = 'pointer';
+                    chatDiv.onclick = () => selectChat(chat.id);
+                    
+                    let unreadBadge = '';
+                    if (chat.unread_count > 0) {
+                        unreadBadge = ` <span style="color: red; font-weight: bold;">(${chat.unread_count})</span>`;
+                    }
+                    
+                    chatDiv.innerHTML = `<a>${chat.name}${unreadBadge}</a>`;
+                    contactList.appendChild(chatDiv);
+                });
+            } catch (error) {
+                console.error('Ошибка загрузки чатов:', error);
+            }
+        }
+
+        // Выбор чата
+        async function selectChat(chatId) {
+            currentChatId = chatId;
+            
+            document.getElementById('messageInputArea').style.display = 'flex';
+            document.getElementById('messagesList').innerHTML = '<div class="incoming">Загрузка...</div>';
+            
+            await loadMessages(chatId);
+            connectWebSocket(chatId);
+        }
+
+        // Загрузка сообщений чата
+        async function loadMessages(chatId) {
+            try {
+                const response = await fetch(`/api/chats/${chatId}/messages`);
+                const messages = await response.json();
+                
+                const messagesList = document.getElementById('messagesList');
+                messagesList.innerHTML = '';
+                
+                if (messages.length === 0) {
+                    messagesList.innerHTML = '<div class="incoming">Нет сообщений</div>';
+                    return;
+                }
+                
+                messages.reverse().forEach(message => {
+                    const messageDiv = document.createElement('div');
+                    
+                    const time = new Date(message.timestamp).toLocaleTimeString();
+                    
+                    if (message.sender_id === currentUser.id) {
+                        messageDiv.className = 'outgoing';
+                        messageDiv.innerHTML = `Вы: ${message.content} <small>${time}</small>`;
+                    } else {
+                        messageDiv.className = 'incoming';
+                        messageDiv.innerHTML = `${message.sender_name}: ${message.content} <small>${time}</small>`;
+                    }
+                    
+                    messagesList.appendChild(messageDiv);
+                });
+                
+                messagesList.scrollTop = messagesList.scrollHeight;
+            } catch (error) {
+                console.error('Ошибка загрузки сообщений:', error);
+            }
+        }
+
+        // WebSocket соединение
+        function connectWebSocket(chatId) {
+            if (ws) ws.close();
+            
+            ws = new WebSocket(`ws://${window.location.host}/ws/${chatId}`);
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'new_message') {
+                    addMessageToChat(data.message);
+                }
+            };
+        }
+
+        // Добавление нового сообщения в чат
+        function addMessageToChat(message) {
+            const messagesList = document.getElementById('messagesList');
+            const messageDiv = document.createElement('div');
+            
+            const time = new Date(message.timestamp).toLocaleTimeString();
+            
+            if (message.sender_id === currentUser.id) {
+                messageDiv.className = 'outgoing';
+                messageDiv.innerHTML = `Вы: ${message.content} <small>${time}</small>`;
+            } else {
+                messageDiv.className = 'incoming';
+                messageDiv.innerHTML = `${message.sender_name}: ${message.content} <small>${time}</small>`;
+            }
+            
+            messagesList.appendChild(messageDiv);
+            messagesList.scrollTop = messagesList.scrollHeight;
+        }
+
+        // Отправка сообщения
+        async function sendMessage() {
+            const input = document.getElementById('messageText');
+            const content = input.value.trim();
+            
+            if (!content || !currentChatId) return;
+            
+            try {
+                await fetch('/api/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content: content,
+                        chat_id: currentChatId
+                    })
+                });
+                
+                input.value = '';
+            } catch (error) {
+                console.error('Ошибка отправки:', error);
+            }
+        }
+
+        // Обработка Enter
+        window.handleKeyPress = (event) => {
+            if (event.key === 'Enter') sendMessage();
+        };
+
+        // Выход
+        window.logout = async () => {
+            await fetch('/logout', { method: 'POST' });
+            window.location.href = '/';
+        };
+
+        // Код для модального окна (как в прошлом рабочем варианте)
+        const modal = document.querySelector('#myModal');
+        const btnOpen = document.querySelector('#openModal');
+        const btnClose = document.querySelector('#closeModal');
+        const btnSave = document.querySelector('#saveModal');
+        const searchInput = document.querySelector('#searchNickname');
+        const searchResults = document.querySelector('#searchResults');
+
+        btnOpen.onclick = () => {
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            selectedUserId = null;
+            modal.showModal();
+        };
+
+        btnClose.onclick = () => modal.close();
+
+        searchInput.oninput = async function() {
+            const query = this.value.trim();
+            if (query.length < 2) {
+                searchResults.innerHTML = '';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/users/search?query=${encodeURIComponent(query)}`);
+                const users = await response.json();
+                
+                if (users.length === 0) {
+                    searchResults.innerHTML = '<div style="color: #999; padding: 5px;">Ничего не найдено</div>';
+                    return;
+                }
+
+                searchResults.innerHTML = users.map(user => `
+                    <div style="padding: 8px; border-bottom: 1px solid #eee; cursor: pointer;" 
+                         onmouseover="this.style.background='#f5f5f5'" 
+                         onmouseout="this.style.background='white'"
+                         onclick="selectUser(${user.id}, '${user.nickname}')">
+                        ${user.nickname} (@${user.username})
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Ошибка поиска:', error);
+            }
+        };
+
+        window.selectUser = (userId, nickname) => {
+            searchInput.value = nickname;
+            searchResults.innerHTML = '';
+            selectedUserId = userId;
+        };
+
+        btnSave.onclick = async () => {
+            if (!selectedUserId) {
+                alert('Выберите пользователя из списка');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/chats', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: null,
+                        participant_ids: [selectedUserId]
+                    })
+                });
+
+                if (response.ok) {
+                    modal.close();
+                    loadChats(); // Перезагружаем список чатов
+                } else {
+                    alert('Ошибка при создании чата');
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+            }
+        };
+
+        window.attachFile = () => {
+            alert('Функция прикрепления файлов будет добавлена позже');
+        };
+    </script>
 </body>
 </html>
