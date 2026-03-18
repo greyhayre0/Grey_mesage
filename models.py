@@ -12,6 +12,7 @@ class Users(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     nickname: Mapped[str] = mapped_column(String(100), nullable=False)
+    profileimage: Mapped[str] = mapped_column(String(100), nullable=True, default='/static/default-avatar.png')
     password: Mapped[str] = mapped_column(String(255), nullable=False)  # Хеш пароля
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_seen: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

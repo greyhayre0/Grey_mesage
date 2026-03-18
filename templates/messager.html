@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <title>Чаты</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <script>
-        // Данные пользователя
         const currentUser = {
             id: {{ user_id|tojson }},
             username: {{ username|tojson }},
-            nickname: {{ nickname|tojson }}
+            nickname: {{ nickname|tojson }},
+            profileimage: {{ profileimage|tojson }},
         };
     </script>
 </head>
@@ -25,6 +26,10 @@
     <main>
         <div class="chat">
             <div class="contact">
+                <div class = "profile">
+                    <button id="myavatar"><img src={{ profileimage }} alt="A"></button>
+                    <h3 id="myname">{{ nickname }}</h3><p style="font-size: 2vh; color: #4e4e4e;">@{{ username }}</p>
+                </div>
                 <div class="contact-button">
                     <button id="openModal">+</button>
                 </div>
@@ -41,21 +46,69 @@
                     <textarea rows="1" type="text" id="messageText" placeholder="Введи сообщение" onkeypress="handleKeyPress(event)"></textarea>
                     <button onclick="sendMessage()">✉︎</button>
                     <button onclick="attachFile()">⛓︎</button>
+                    <input type="file" id="fileInput" accept="image/*" style="display: none;">
                 </div>
             </div>
         </div>
     </main>
 
-    <!--Всплывающее окно нового контакта-->
+    <!--Всплывающее окно создания чата-->
     <dialog id="myModal">
-        <h3>Добавить контакт</h3>
-        <input type="text" id="searchNickname" placeholder="Введите никнейм">
+        <h3>Создать чат</h3>
+        
+    <div class="chat-type-selector">
+        <input type="radio" name="chatType" id="chatPersonal" value="personal" checked>
+        <label for="chatPersonal">Личный</label>
+        
+        <input type="radio" name="chatType" id="chatGroup" value="group">
+        <label for="chatGroup">Групповой</label>
+    </div>
+        
+        <div id="groupNameField" style="display: none;">
+            <input type="text" id="groupName" placeholder="Название группы">
+        </div>
+        
+        <input type="text" id="searchNickname" placeholder="Поиск пользователей...">
         <div id="searchResults" style="margin: 10px 0; max-height: 150px; overflow-y: auto;"></div>
-        <button id="saveModal">Сохранить</button>
+        
+        <div id="selectedUsers" style="margin: 10px 0; display: none;">
+            <h4>Выбранные участники:</h4>
+            <div id="selectedUsersList"></div>
+        </div>
+        
+        <button id="saveModal">Создать чат</button>
         <button id="closeModal">Закрыть</button>
     </dialog>
+    
+    <!--Всплывающее окно Аватарки-->
+    <dialog id="avatarDialog">
+    <form method="dialog">
+        <h3>Изменить аватар</h3>
+        <label>
+            URL изображения:
+            <input type="url" id="avatarUrl" placeholder="https://...">
+        </label>
+        <div class="dialog-buttons">
+            <button type="submit" id="saveAvatar">Сохранить</button>
+            <button type="button" id="closeDialog">Отмена</button>
+        </div>
+    </form>
+</dialog>
 
-    <!-- Подключаем скрипты -->
+<!--Всплывающее окно Никнейма-->
+<dialog id="nicknameDialog">
+    <form method="dialog">
+        <h3>Изменить никнейм</h3>
+        <label>
+            Новый никнейм:
+            <input type="text" id="nicknameInput" placeholder="Введите новый никнейм" maxlength="100">
+        </label>
+        <div class="dialog-buttons">
+            <button type="submit" id="saveNickname">Сохранить</button>
+            <button type="button" id="closeNicknameDialog">Отмена</button>
+        </div>
+    </form>
+</dialog>
     <script src="/static/js/messenger.js"></script>
     <script src="/static/js/modal.js"></script>
 </body>

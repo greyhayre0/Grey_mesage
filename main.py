@@ -131,7 +131,8 @@ async def messager(request: Request, user: Users = Depends(get_current_user)):
             "request": request, 
             "user_id": user.id,           # Добавлено
             "username": user.username,     # Добавлено
-            "nickname": user.nickname      # Добавлено
+            "nickname": user.nickname,      # Добавлено
+            "profileimage": user.profileimage      # Добавлено
         }
     )
 
@@ -283,6 +284,8 @@ async def get_user_chats(
         
         # Для личных чатов показываем имя собеседника
         chat_name = chat.name
+        other_participant = None  # <-- Объявляем переменную ЗДЕСЬ
+        
         if not chat.is_group and not chat_name:
             # Находим собеседника
             other_participant = db.query(Users).join(
@@ -294,9 +297,16 @@ async def get_user_chats(
             if other_participant:
                 chat_name = other_participant.nickname
         
+        # Определяем аватар
+        if chat.is_group:
+            profileimage = '/static/default-avatar.png'
+        else:
+            profileimage = other_participant.profileimage if other_participant else '/static/default-avatar.png'
+        
         result.append({
             "id": chat.id,
             "name": chat_name or f"Чат {chat.id}",
+            "profileimage": profileimage,  # <-- Используем profileimage
             "is_group": chat.is_group,
             "last_message": last_message.content if last_message else None,
             "last_message_time": last_message.timestamp.isoformat() if last_message else None,
@@ -567,6 +577,106 @@ async def get_user_info(user: Users = Depends(get_current_user)):
         "created_at": user.created_at.isoformat(),
         "last_seen": user.last_seen.isoformat() if user.last_seen else None
     }
+
+@app.delete("/api/chats/{chat_id}")
+async def delete_chat(
+    chat_id: int,
+    user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    try:
+        # Проверяем, является ли пользователь участником чата
+        participant = db.query(ChatParticipants).filter(
+            ChatParticipants.chat_id == chat_id,
+            ChatParticipants.user_id == user.id
+        ).first()
+        
+        if not participant:
+            return {"success": False, "error": "Чат не найден или нет доступа"}
+        
+        # Удаляем все сообщения чата
+        db.query(Messages).filter(Messages.chat_id == chat_id).delete()
+        
+        # Удаляем всех участников чата
+        db.query(ChatParticipants).filter(ChatParticipants.chat_id == chat_id).delete()
+        
+        # Удаляем сам чат
+        chat = db.query(Chats).filter(Chats.id == chat_id).first()
+        if chat:
+            db.delete(chat)
+        
+        db.commit()
+        
+        # Закрываем WebSocket соединения для этого чата
+        if chat_id in active_connections:
+            for connection in active_connections[chat_id]:
+                try:
+                    await connection.close()
+                except:
+                    pass
+            del active_connections[chat_id]
+        
+        return {"success": True}
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Ошибка удаления чата {chat_id}: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/update-avatar")
+async def update_avatar(
+    request: Request,
+    user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    try:
+        data = await request.json()
+        new_avatar_url = data.get('profileimage')
+        
+        if not new_avatar_url:
+            return {"success": False, "error": "URL не может быть пустым"}
+        
+        # Обновляем пользователя
+        user.profileimage = new_avatar_url
+        db.commit()
+        
+        return {"success": True}
+        
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": str(e)}
+    
+@app.post("/api/update-nickname")
+async def update_nickname(
+    request: Request,
+    user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    try:
+        data = await request.json()
+        new_nickname = data.get('nickname')
+        
+        if not new_nickname or not new_nickname.strip():
+            return {"success": False, "error": "Никнейм не может быть пустым"}
+        
+        # Обновляем пользователя
+        user.nickname = new_nickname.strip()
+        db.commit()
+        
+        return {"success": True}
+        
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": str(e)}
 #################################################################################
 
 @app.get("/nas", response_class=HTMLResponse)

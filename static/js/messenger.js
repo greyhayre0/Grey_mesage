@@ -21,7 +21,7 @@ async function loadChats() {
         contactList.innerHTML = '';
         
         if (chats.length === 0) {
-            contactList.innerHTML = '<div class="contact-name"><a>Нет чатов</a></div>';
+            contactList.innerHTML = '<div class="contact-name"><a>Нет чатов</a></div> ';
             return;
         }
         
@@ -42,7 +42,20 @@ async function loadChats() {
                 unreadBadge = ` <span style="color: red; font-weight: bold;">(${chat.unread_count})</span>`;
             }
             
-            chatDiv.innerHTML = `<a>${chat.name}${unreadBadge}</a>`;
+            chatDiv.innerHTML = `
+            <div class="mycontact">
+                <div class="contact-avatar"><img src="${chat.profileimage || '/static/default-avatar.png'}" alt="A"></div>
+                <div><a>${chat.name}${unreadBadge}</a></div>
+                <div><button class="contact-button-del" id="Delcontact">✖︎</button></div>
+            </div>
+            `;
+            // Добавляем обработчик на кнопку удаления
+            const delBtn = chatDiv.querySelector('.contact-button-del');
+            delBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Чтобы не открывался чат при клике на удаление
+                deleteChat(chat.id);
+            });
+            
             contactList.appendChild(chatDiv);
         });
     } catch (error) {
@@ -112,8 +125,8 @@ function addMessageToChat(message) {
     const messagesList = document.getElementById('messagesList');
     const messageContainer = document.createElement('div');
     
-    const time = new Date(message.timestamp).toLocaleTimeString();
-    const date = new Date(message.timestamp).toLocaleDateString();
+    const time = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const date = new Date(message.timestamp).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
     
     if (message.sender_id === currentUser.id) {
         // Исходящее сообщение (справа)
@@ -121,7 +134,7 @@ function addMessageToChat(message) {
         messageContainer.innerHTML = `
             <div class="message-info">
                 <span class="message-sender">Вы</span>
-                <span class="message-time">| ${time}</span>
+                <span class="message-time">| ${date} ${time}</span>
             </div>
             <div class="message-bubble">
                 ${message.content}
@@ -133,7 +146,7 @@ function addMessageToChat(message) {
         messageContainer.innerHTML = `
             <div class="message-info">
                 <span class="message-sender">${message.sender_name}</span>
-                <span class="message-time">| ${time}</span>
+                <span class="message-time">| ${date} ${time}</span>
             </div>
             <div class="message-bubble">
                 ${message.content}
@@ -192,4 +205,166 @@ async function logout() {
 // Прикрепить файл
 function attachFile() {
     alert('Функция прикрепления файлов будет добавлена позже');
+}
+
+// Добавление аватарки
+const dialog = document.getElementById('avatarDialog');
+const myavatar = document.getElementById('myavatar');
+const closeBtn = document.getElementById('closeDialog');
+const saveBtn = document.getElementById('saveAvatar');
+const avatarInput = document.getElementById('avatarUrl');
+
+// Открыть диалог при клике на аватар
+myavatar.addEventListener('click', () => {
+    avatarInput.value = currentUser.profileimage || ''; // текущий URL
+    dialog.showModal();
+});
+
+// Закрыть по кнопке Отмена
+closeBtn.addEventListener('click', () => {
+    dialog.close();
+});
+
+// Сохранить
+saveBtn.addEventListener('click', async (e) => {
+    e.preventDefault(); // предотвращаем закрытие формы
+    
+    const newAvatarUrl = avatarInput.value.trim();
+    
+    if (!newAvatarUrl) {
+        alert('Введите URL');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/update-avatar', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                profileimage: newAvatarUrl
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Обновляем на странице
+            document.querySelector('#myavatar img').src = newAvatarUrl;
+            // Обновляем в объекте
+            currentUser.profileimage = newAvatarUrl;
+            // Закрываем диалог
+            dialog.close();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Ошибка при сохранении');
+    }
+});
+
+// Закрыть по клику на backdrop
+dialog.addEventListener('click', (e) => {
+    if (e.target === dialog) {
+        dialog.close();
+    }
+});
+
+// Смена никнейма
+const nicknameDialog = document.getElementById('nicknameDialog');
+const myname = document.getElementById('myname');
+const closeNicknameBtn = document.getElementById('closeNicknameDialog');
+const saveNicknameBtn = document.getElementById('saveNickname');
+const nicknameInput = document.getElementById('nicknameInput');
+
+// Открыть диалог при клике на никнейм
+myname.addEventListener('click', () => {
+    nicknameInput.value = currentUser.nickname || '';
+    nicknameDialog.showModal();
+});
+
+// Закрыть по кнопке Отмена
+closeNicknameBtn.addEventListener('click', () => {
+    nicknameDialog.close();
+});
+
+// Сохранить
+saveNicknameBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    
+    const newNickname = nicknameInput.value.trim();
+    
+    if (!newNickname) {
+        alert('Никнейм не может быть пустым');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/update-nickname', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                nickname: newNickname
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Обновляем на странице
+            myname.textContent = newNickname;
+            // Обновляем в объекте
+            currentUser.nickname = newNickname;
+            // Закрываем диалог
+            nicknameDialog.close();
+        } else {
+            alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Ошибка при сохранении');
+    }
+});
+
+// Закрыть по клику на backdrop
+nicknameDialog.addEventListener('click', (e) => {
+    if (e.target === nicknameDialog) {
+        nicknameDialog.close();
+    }
+});
+
+
+// Удаление чата
+async function deleteChat(chatId) {
+    if (!confirm('Удалить чат? Все сообщения будут безвозвратно удалены.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/chats/${chatId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Если удалили текущий открытый чат - очищаем
+            if (currentChatId === chatId) {
+                currentChatId = null;
+                document.getElementById('messageInputArea').style.display = 'none';
+                document.getElementById('messagesList').innerHTML = '<div class="incoming">Выберите чат</div>';
+            }
+            // Перезагружаем список чатов
+            await loadChats();
+        } else {
+            alert('Ошибка: ' + (data.error || 'Не удалось удалить чат'));
+        }
+    } catch (error) {
+        console.error('Ошибка удаления чата:', error);
+        alert('Ошибка при удалении');
+    }
 }
