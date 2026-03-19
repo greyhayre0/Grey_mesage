@@ -23,3 +23,42 @@
 - Нельзя пока удадить чат а так же в бд вместе с чатом не удаляются сообщения (можно добавить ручку а так же в бд настроить каскадное удаление)
 - Нет шифровки сообщений (надо ли оно вообще?)
 - нет администрирования и логирования (надо ли оно мне тоже вопрос)
+
+project/
+├── main.py                    # ~50-100 строк (только инициализация)
+├── core/
+│   ├── __init__.py
+│   ├── config.py              # Настройки
+│   ├── database.py            # Подключение к БД
+│   ├── security.py            # Сессии, хеширование
+│   └── dependencies.py        # Общие зависимости
+├── models/
+│   ├── __init__.py
+│   ├── user.py                # Модели Users
+│   ├── chat.py                # Модели Chats
+│   └── message.py             # Модели Messages
+├── schemas/
+│   ├── __init__.py
+│   ├── user.py                # Pydantic схемы
+│   ├── chat.py
+│   └── message.py
+├── api/
+│   ├── __init__.py
+│   ├── v1/
+│   │   ├── __init__.py
+│   │   ├── auth.py            # Логин/регистрация
+│   │   ├── chats.py           # Чаты
+│   │   ├── messages.py        # Сообщения
+│   │   ├── users.py           # Пользователи
+│   │   └── uploads.py         # Загрузка файлов
+├── services/
+│   ├── __init__.py
+│   ├── auth_service.py        # Бизнес-логика авторизации
+│   ├── chat_service.py        # Бизнес-логика чатов
+│   └── file_service.py        # Работа с файлами
+├── websocket/
+│   ├── __init__.py
+│   └── connection_manager.py  # WebSocket менеджер
+└── utils/
+    ├── __init__.py
+    └── cleanup.py             # Функции очистки
