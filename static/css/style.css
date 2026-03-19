@@ -177,7 +177,8 @@ nav > a:hover {
     width: 48px;
     height: 48px;
     border-radius: 1rem;
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    background-color:#0b0a1000;
+    border: none;
     flex-shrink: 0;
     overflow: hidden;
     cursor: pointer;
@@ -502,6 +503,17 @@ nav > a:hover {
     transform: scale(0.95);
 }
 
+/* Настройки картинки */
+.message-img {
+    max-width: auto;
+    max-height: 50vh;
+    border-radius: 8px;
+    cursor: pointer ;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 2px solid transparent;
+    object-fit: cover;
+    display: inline-block;
+}
 /* ========== МОДАЛЬНЫЕ ОКНА ========== */
 #myModal,
 #avatarDialog,

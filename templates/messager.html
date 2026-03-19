@@ -22,11 +22,11 @@
                 <div class = "profile">
                     <button id="myavatar"><img src={{ profileimage }} alt="A"></button>
                     <h3 id="myname">{{ nickname }}</h3><p style="font-size: 2vh; color: #4e4e4e;">@{{ username }}</p>
+                    <div class="contact-button"><button id="openModal">+</button></div>
                     <button onclick="logout()" class="logouts">⏻</button>
+                    
                 </div>
-                <div class="contact-button">
-                    <button id="openModal">+</button>
-                </div>
+
                 <div class="contact-list" id="contactList">
                     <!-- Сюда загружаются чаты -->
                 </div>
@@ -37,10 +37,9 @@
                     <!-- Сюда загружаются сообщения -->
                 </div>
                 <div class="message-input" id="messageInputArea">
-                    <button id="toggleContactsBtn" class="toggle-contacts-btn" onclick="setting()">☰</button>
                     <textarea rows="1" type="text" id="messageText" placeholder="Введи сообщение" onkeypress="handleKeyPress(event)"></textarea>
                     <button onclick="sendMessage()">✉︎</button>
-                    <button onclick="attachFile()">⛓︎</button>
+                    <button onclick="attachFile()">☰</button>
                     <input type="file" id="fileInput" accept="image/*" style="display: none;">
                 </div>
             </div>

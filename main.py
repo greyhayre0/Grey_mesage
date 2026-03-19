@@ -697,6 +697,146 @@ async def messager(request: Request, user: Users = Depends(get_current_user)):
     )
 
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+
+
+
+
+
+
+
+
+from fastapi import UploadFile, File, Form
+from pathlib import Path
+import shutil
+import uuid
+import os
+from PIL import Image
+import io
+
+# Настройка для сохранения файлов
+UPLOAD_DIR = Path("uploads/images")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+# Монтируем статику для доступа к загруженным файлам (добавьте в существующий код)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+# Ручка для загрузки изображения
+@app.post("/api/upload/image")
+async def upload_image(
+    file: UploadFile = File(...),
+    user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    try:
+        # Проверяем тип файла
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File must be an image")
+        
+        # Читаем файл для проверки
+        contents = await file.read()
+        
+        # Проверяем, что это действительно изображение через Pillow
+        try:
+            img = Image.open(io.BytesIO(contents))
+            img.verify()  # Проверяет, что файл корректен
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid image file")
+        
+        # Генерируем уникальное имя файла
+        file_extension = os.path.splitext(file.filename)[1].lower()
+        if not file_extension:
+            file_extension = '.jpg'  # По умолчанию для JPEG
+            
+        # Ограничиваем допустимые расширения
+        allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+        if file_extension not in allowed_extensions:
+            file_extension = '.jpg'  # Конвертируем в JPEG если формат не поддерживается
+            
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_path = UPLOAD_DIR / unique_filename
+        
+        # Возвращаемся в начало файла и сохраняем
+        await file.seek(0)
+        
+        # Сохраняем файл
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Если это не JPEG, конвертируем в JPEG для оптимизации
+        if file_extension not in ['.jpg', '.jpeg']:
+            try:
+                img = Image.open(file_path)
+                if img.mode in ('RGBA', 'LA', 'P'):
+                    # Конвертируем в RGB если есть альфа-канал
+                    rgb_img = Image.new('RGB', img.size, (255, 255, 255))
+                    rgb_img.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+                    img = rgb_img
+                
+                # Сохраняем как JPEG
+                jpeg_path = UPLOAD_DIR / f"{uuid.uuid4()}.jpg"
+                img.save(jpeg_path, 'JPEG', quality=85, optimize=True)
+                
+                # Удаляем оригинал
+                file_path.unlink()
+                file_path = jpeg_path
+                unique_filename = jpeg_path.name
+            except Exception as e:
+                logger.error(f"Error converting image: {e}")
+        
+        # Формируем URL для доступа к файлу
+        file_url = f"/uploads/images/{unique_filename}"
+        
+        return {
+            "filename": unique_filename,
+            "original_filename": file.filename,
+            "fileUrl": file_url,
+            "size": file_path.stat().st_size,
+            "content_type": file.content_type
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Upload error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Дополнительная ручка для удаления старых неиспользуемых изображений
+@app.post("/api/cleanup/images")
+async def cleanup_old_images(
+    days: int = 7,
+    user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    try:
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        deleted_count = 0
+        
+        # Проходим по всем файлам в папке uploads
+        for file_path in UPLOAD_DIR.glob("*"):
+            if file_path.is_file():
+                # Получаем время создания файла
+                file_time = datetime.fromtimestamp(file_path.stat().st_ctime)
+                
+                if file_time < cutoff_date:
+                    # Проверяем, используется ли файл в сообщениях
+                    file_url = f"/uploads/images/{file_path.name}"
+                    used_in_messages = db.query(Messages).filter(
+                        Messages.content.contains(file_url)
+                    ).first()
+                    
+                    if not used_in_messages:
+                        file_path.unlink()
+                        deleted_count += 1
+                        logger.info(f"Deleted old image: {file_path.name}")
+        
+        return {"deleted_count": deleted_count, "older_than_days": days}
+        
+    except Exception as e:
+        logger.error(f"Cleanup error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
