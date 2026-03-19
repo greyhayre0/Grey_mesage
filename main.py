@@ -357,6 +357,7 @@ async def get_chat_messages(
             "timestamp": msg.timestamp.isoformat(),
             "sender_id": msg.sender_id,
             "sender_name": msg.sender.nickname,
+            "sender_avatar": msg.sender.profileimage,
             "is_mine": msg.sender_id == user.id,
             "is_read": msg.is_read
         }

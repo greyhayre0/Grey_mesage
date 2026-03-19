@@ -44,7 +44,7 @@ async function loadChats() {
             
             chatDiv.innerHTML = `
             <div class="mycontact">
-                <div class="contact-avatar"><img src="${chat.profileimage || '/static/default-avatar.png'}" alt="A"></div>
+                <div class="contact-avatar"><img src="${chat.profileimage}" alt="A"></div>
                 <div><a>${chat.name}${unreadBadge}</a></div>
                 <div><button class="contact-button-del" id="Delcontact">✖︎</button></div>
             </div>
@@ -128,13 +128,19 @@ function addMessageToChat(message) {
     const time = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const date = new Date(message.timestamp).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
     
+    // Получаем ссылку на аватар
+    const avatarUrl = message.sender_id === currentUser.id 
+        ? currentUser.profileimage   // для себя
+        : message.sender_avatar;      // для других
+    
     if (message.sender_id === currentUser.id) {
         // Исходящее сообщение (справа)
         messageContainer.className = 'outgoing';
         messageContainer.innerHTML = `
             <div class="message-info">
+                <img class="contact-avatar" src="${avatarUrl}" style="width: 25px; height: 25px; border-radius: 50%; object-fit: cover;" alt="avatar">
                 <span class="message-sender">Вы</span>
-                <span class="message-time">| ${date} ${time}</span>
+                <span class="message-time">| ${date} ${time} </span>
             </div>
             <div class="message-bubble">
                 ${message.content}
@@ -145,6 +151,7 @@ function addMessageToChat(message) {
         messageContainer.className = 'incoming';
         messageContainer.innerHTML = `
             <div class="message-info">
+                <img class="contact-avatar" src="${avatarUrl}" style="width: 25px; height: 25px; border-radius: 50%; object-fit: cover;" alt="avatar">
                 <span class="message-sender">${message.sender_name}</span>
                 <span class="message-time">| ${date} ${time}</span>
             </div>
@@ -368,3 +375,9 @@ async function deleteChat(chatId) {
         alert('Ошибка при удалении');
     }
 }
+
+
+// Или если хочешь сразу, без анимации:
+window.addEventListener('load', () => {
+    window.scrollTo(0, document.body.scrollHeight);
+});
