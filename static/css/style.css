@@ -1,30 +1,30 @@
 /* ========== ОСНОВА ========== */
 :root {
     /* Основная палитра 2026: глубокий тёмный с оттенком фиалки */
-    --bg-deep: #0A0C0F;
-    --bg-surface: #14181C;
-    --bg-elevated: #1E2329;
-    --bg-inset: #0F1215;
+    --bg-deep: #0B0A10;
+    --bg-surface: #15131C;
+    --bg-elevated: #201D2A;
+    --bg-inset: #0E0C14;
     
-    /* Акценты - тёплый янтарь (без синего!) */
-    --accent-primary: #C8742C;
-    --accent-secondary: #E68A3E;
-    --accent-soft: #2A2A25;
-    --accent-glow: rgba(200, 116, 44, 0.15);
+    /* Акценты - благородный аметист (холодная фиолетовая гамма) */
+    --accent-primary: #9B7BDA;
+    --accent-secondary: #B69EF0;
+    --accent-soft: #252133;
+    --accent-glow: rgba(155, 123, 218, 0.18);
     
     /* Текст */
-    --text-primary: #FFFFFF;
-    --text-secondary: #A5B2C6;
-    --text-tertiary: #6F7B8A;
+    --text-primary: #F2EFFA;
+    --text-secondary: #C6BCD9;
+    --text-tertiary: #8F85A3;
     
     /* Границы и состояния */
-    --border-subtle: #262E36;
-    --border-hover: #3A4550;
-    --hover-overlay: rgba(200, 116, 44, 0.08);
+    --border-subtle: #2D2740;
+    --border-hover: #453D5C;
+    --hover-overlay: rgba(155, 123, 218, 0.12);
     
     /* Системные */
-    --danger: #D44F4F;
-    --success: #2F8F6B;
+    --danger: #E06B6B;
+    --success: #50B598;
     --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
