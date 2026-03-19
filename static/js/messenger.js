@@ -44,9 +44,9 @@ async function loadChats() {
             
             chatDiv.innerHTML = `
             <div class="mycontact">
+                <div><button class="contact-button-del" id="Delcontact">✖︎</button></div>
                 <div class="contact-avatar"><img src="${chat.profileimage}" alt="A"></div>
                 <div><a>${chat.name}${unreadBadge}</a></div>
-                <div><button class="contact-button-del" id="Delcontact">✖︎</button></div>
             </div>
             `;
             // Добавляем обработчик на кнопку удаления
@@ -214,6 +214,11 @@ function attachFile() {
     alert('Функция прикрепления файлов будет добавлена позже');
 }
 
+// Настройки
+function setting() {
+    alert('Функция настроек удет добавлена позже');
+}
+
 // Добавление аватарки
 const dialog = document.getElementById('avatarDialog');
 const myavatar = document.getElementById('myavatar');
@@ -375,9 +380,3 @@ async function deleteChat(chatId) {
         alert('Ошибка при удалении');
     }
 }
-
-
-// Или если хочешь сразу, без анимации:
-window.addEventListener('load', () => {
-    window.scrollTo(0, document.body.scrollHeight);
-});

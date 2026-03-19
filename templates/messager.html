@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Чаты</title>
     <link rel="stylesheet" href="/static/css/style.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1 user-scalable=no">
     <script>
         const currentUser = {
             id: {{ user_id|tojson }},
@@ -15,20 +15,13 @@
     </script>
 </head>
 <body>
-    <header>
-        <nav>
-            <a href="/messager" style="background-color: #096565;">Сообщения</a>
-            <a href="/nas">Хранилище</a>
-            <a href="#" onclick="logout()">выйти</a>
-        </nav>
-    </header>
-
     <main>
         <div class="chat">
             <div class="contact">
                 <div class = "profile">
                     <button id="myavatar"><img src={{ profileimage }} alt="A"></button>
                     <h3 id="myname">{{ nickname }}</h3><p style="font-size: 2vh; color: #4e4e4e;">@{{ username }}</p>
+                    <button onclick="logout()" class="logouts">⏻</button>
                 </div>
                 <div class="contact-button">
                     <button id="openModal">+</button>
@@ -43,6 +36,7 @@
                     <!-- Сюда загружаются сообщения -->
                 </div>
                 <div class="message-input" id="messageInputArea">
+                    <button id="toggleContactsBtn" class="toggle-contacts-btn" onclick="setting()">☰</button>
                     <textarea rows="1" type="text" id="messageText" placeholder="Введи сообщение" onkeypress="handleKeyPress(event)"></textarea>
                     <button onclick="sendMessage()">✉︎</button>
                     <button onclick="attachFile()">⛓︎</button>
