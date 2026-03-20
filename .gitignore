@@ -25,3 +25,4 @@ __pycache__/
 your_database.db/
 .idea/
 uploads/
+your_database.db
