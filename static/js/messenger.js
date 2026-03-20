@@ -197,16 +197,6 @@ async function markChatAsRead(chatId) {
     }
 }
 
-// Останавливаем проверку когда страница неактивна
-document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-        stopPolling();
-    } else {
-        startPolling();
-        updateUnreadBadges();
-    }
-});
-
 // Выбор чата
 async function selectChat(chatId) {
     if (currentChatId === chatId) return;
