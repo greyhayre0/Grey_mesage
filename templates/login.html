@@ -2,139 +2,13 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <title>Вход</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <script src="/static/js/log_window.js"></script>
 </head>
 <body>
-<script>
-    async function sendRequest(action) {
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        const messageDiv = document.getElementById('result');
-        
-        if (!username || !password) {
-            showMessage('Заполните все поля!', 'error');
-            return;
-        }
-        
-        try {
-            const response = await fetch(`/api/v1/${action}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    username: username,
-                    password: password
-                })
-            });
-            
-            const data = await response.json();
-            
-            if (response.ok) {
-                if (data.redirect) {
-                    window.location.href = data.redirect;
-                }
-            } else {
-                // Обработка ошибок
-                let errorMessage = '';
-                
-                if (Array.isArray(data.detail)) {
-                    // Массив ошибок Pydantic
-                    const errors = [];
-                    for (const item of data.detail) {
-                        if (item.loc && item.msg) {
-                            const field = item.loc[item.loc.length - 1];
-                            errors.push(`${field}: ${item.msg}`);
-                        } else if (item.msg) {
-                            errors.push(item.msg);
-                        } else {
-                            errors.push(JSON.stringify(item));
-                        }
-                    }
-                    errorMessage = errors.join('\n');
-                } else if (typeof data.detail === 'string') {
-                    errorMessage = data.detail;
-                } else if (typeof data.detail === 'object' && data.detail !== null) {
-                    errorMessage = JSON.stringify(data.detail, null, 2);
-                } else {
-                    errorMessage = 'Ошибка сервера';
-                }
-                
-                showMessage(errorMessage, 'error');
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            showMessage('Ошибка соединения с сервером', 'error');
-        }
-    }
-    
-    function showMessage(text, type) {
-        const messageDiv = document.getElementById('result');
-        if (text && text.includes('\n')) {
-            messageDiv.innerHTML = text.replace(/\n/g, '<br>');
-        } else {
-            messageDiv.innerHTML = text || 'Ошибка';
-        }
-        messageDiv.className = `result ${type}`;
-        
-        // ✅ УБРАЛИ setTimeout - ошибка теперь висит постоянно
-        // Пока пользователь не исправит данные и не отправит форму снова
-    }
-    
-    function showLogin() {
-        document.getElementById('loginForm').style.display = 'block';
-        document.getElementById('registerForm').style.display = 'none';
-        // Очищаем сообщение при переключении формы
-        document.getElementById('result').innerHTML = '';
-        document.getElementById('result').className = 'result';
-    }
-    
-    function showRegister() {
-        document.getElementById('loginForm').style.display = 'none';
-        document.getElementById('registerForm').style.display = 'block';
-        // Очищаем сообщение при переключении формы
-        document.getElementById('result').innerHTML = '';
-        document.getElementById('result').className = 'result';
-    }
-    
-    // Добавляем очистку ошибки при вводе текста
-    document.addEventListener('DOMContentLoaded', function() {
-        const usernameInput = document.getElementById('username');
-        const passwordInput = document.getElementById('password');
-        
-        function clearMessage() {
-            const messageDiv = document.getElementById('result');
-            messageDiv.innerHTML = '';
-            messageDiv.className = 'result';
-        }
-        
-        if (usernameInput) {
-            usernameInput.addEventListener('input', clearMessage);
-        }
-        if (passwordInput) {
-            passwordInput.addEventListener('input', clearMessage);
-        }
-        
-        // Обработка Enter
-        function handleEnter(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const loginForm = document.getElementById('loginForm');
-                const registerForm = document.getElementById('registerForm');
-                
-                if (loginForm.style.display !== 'none') {
-                    sendRequest('login');
-                } else if (registerForm.style.display !== 'none') {
-                    sendRequest('register');
-                }
-            }
-        }
-        
-        if (usernameInput) usernameInput.addEventListener('keypress', handleEnter);
-        if (passwordInput) passwordInput.addEventListener('keypress', handleEnter);
-    });
-</script>
+
     <main>
         <div class="loginer">
             <input type="text" id="username" placeholder="Введите ваш логин">
@@ -144,6 +18,5 @@
             <div id="result" class="result"></div>
         </div>
     </main>
-
 </body>
 </html>
