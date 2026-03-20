@@ -22,6 +22,7 @@ class Users(Base):
     profileimage = Column(String, default="/static/default-avatar.png")
     created_at = Column(DateTime, default=datetime.utcnow)
     last_seen = Column(DateTime, nullable=True)
+    push_subscription = Column(String, nullable=True)
     role = Column(
         SQLAlchemyEnum(UserRole, values_callable=lambda obj: [e.value for e in obj]),
         default=UserRole.USER,

@@ -4,17 +4,48 @@
 let currentChatId = null;
 let selectedUserId = null;
 let ws = null;
+let lastTotalUnread = 0; // Для отслеживания новых непрочитанных
 
 // Загрузка при старте
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM загружен');
     loadChats();
+    
+    // Запрашиваем разрешение на уведомления
+    if (Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
 });
+
+// Функция воспроизведения звука уведомления
+function playNotificationSound() {
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 800;
+        gainNode.gain.value = 0.2;
+        
+        oscillator.start();
+        gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.2);
+        oscillator.stop(audioContext.currentTime + 0.2);
+        
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+    } catch (error) {
+        console.log('Звук не поддерживается:', error);
+    }
+}
 
 // Загрузка списка чатов
 async function loadChats() {
     try {
-        const response = await fetch('/api/v1/chats');  // ИСПРАВЛЕНО: добавлен /api/v1/
+        const response = await fetch('/api/v1/chats');
         const chats = await response.json();
         
         const contactList = document.getElementById('contactList');
@@ -29,8 +60,8 @@ async function loadChats() {
             const chatDiv = document.createElement('div');
             chatDiv.className = 'contact-name';
             chatDiv.style.cursor = 'pointer';
+            chatDiv.setAttribute('data-chat-id', chat.id);
             
-            // Добавляем класс active если это текущий выбранный чат
             if (currentChatId === chat.id) {
                 chatDiv.classList.add('active');
             }
@@ -49,38 +80,153 @@ async function loadChats() {
                 <div><a>${chat.name}${unreadBadge}</a></div>
             </div>
             `;
-            // Добавляем обработчик на кнопку удаления
+            
             const delBtn = chatDiv.querySelector('.contact-button-del');
             delBtn.addEventListener('click', (e) => {
-                e.stopPropagation(); // Чтобы не открывался чат при клике на удаление
+                e.stopPropagation();
                 deleteChat(chat.id);
             });
             
             contactList.appendChild(chatDiv);
         });
+        
+        startPolling();
+        
     } catch (error) {
         console.error('Ошибка загрузки чатов:', error);
     }
 }
 
+// ========== ОБНОВЛЕНИЕ НЕПРОЧИТАННЫХ ==========
+
+let pollingInterval = null;
+
+// Функция обновления бейджей
+async function updateUnreadBadges() {
+    try {
+        const response = await fetch('/api/v1/messages/unread-counts', {
+            credentials: 'include'
+        });
+        
+        if (!response.ok) return;
+        
+        const counts = await response.json();
+        
+        const contactList = document.getElementById('contactList');
+        const chatDivs = contactList.querySelectorAll('.contact-name');
+        
+        counts.forEach(count => {
+            let chatDiv = null;
+            for (let div of chatDivs) {
+                if (div.getAttribute('data-chat-id') == count.chat_id) {
+                    chatDiv = div;
+                    break;
+                }
+            }
+            
+            if (chatDiv) {
+                const linkElement = chatDiv.querySelector('a');
+                if (linkElement) {
+                    const chatName = linkElement.innerHTML.replace(/<span[^>]*>.*<\/span>/, '').trim();
+                    
+                    if (count.unread_count > 0) {
+                        linkElement.innerHTML = `${chatName} <span style="color: red; font-weight: bold;">(${count.unread_count})</span>`;
+                    } else {
+                        linkElement.innerHTML = chatName;
+                    }
+                }
+            }
+        });
+        
+        const totalUnread = counts.reduce((sum, item) => sum + item.unread_count, 0);
+        
+        // ВОТ ЗДЕСЬ ДОБАВЛЕН ЗВУК ПРИ НОВЫХ СООБЩЕНИЯХ
+        if (totalUnread > lastTotalUnread && totalUnread > 0) {
+            playNotificationSound(); // БРЯК!
+        }
+        
+        lastTotalUnread = totalUnread;
+        
+        if (totalUnread > 0) {
+            document.title = `(${totalUnread}) Чат`;
+        } else {
+            document.title = 'Чат';
+        }
+        
+        if (totalUnread > 0 && !document.hasFocus()) {
+            if (window.lastTotalUnread === undefined) {
+                window.lastTotalUnread = totalUnread;
+            }
+            
+            if (window.lastTotalUnread < totalUnread) {
+                new Notification('Новые сообщения!', {
+                    body: `У вас ${totalUnread} непрочитанных сообщений`,
+                    icon: '/static/default-avatar.png'
+                });
+            }
+            window.lastTotalUnread = totalUnread;
+        } else if (totalUnread === 0) {
+            window.lastTotalUnread = 0;
+        }
+        
+    } catch (error) {
+        console.error('Ошибка обновления бейджей:', error);
+    }
+}
+
+// Запуск проверки
+function startPolling() {
+    if (pollingInterval) return;
+    updateUnreadBadges();
+    pollingInterval = setInterval(updateUnreadBadges, 10000);
+}
+
+// Функция отметки чата как прочитанного
+async function markChatAsRead(chatId) {
+    try {
+        const response = await fetch(`/api/v1/messages/mark-chat-read/${chatId}`, {
+            method: 'POST',
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            await updateUnreadBadges();
+        }
+    } catch (error) {
+        console.error('Ошибка отметки прочитанных:', error);
+    }
+}
+
+// Останавливаем проверку когда страница неактивна
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        stopPolling();
+    } else {
+        startPolling();
+        updateUnreadBadges();
+    }
+});
+
 // Выбор чата
 async function selectChat(chatId) {
+    if (currentChatId === chatId) return;
+    
     currentChatId = chatId;
     
-    // Перезагружаем список чатов чтобы обновить подсветку
     await loadChats();
     
     document.getElementById('messageInputArea').style.display = 'flex';
     document.getElementById('messagesList').innerHTML = '<div class="incoming">Загрузка...</div>';
     
     await loadMessages(chatId);
+    await markChatAsRead(chatId);
     connectWebSocket(chatId);
 }
 
 // Загрузка сообщений чата
 async function loadMessages(chatId) {
     try {
-        const response = await fetch(`/api/v1/chats/${chatId}/messages`);  // ИСПРАВЛЕНО: добавлен /api/v1/
+        const response = await fetch(`/api/v1/chats/${chatId}/messages`);
         const messages = await response.json();
         
         const messagesList = document.getElementById('messagesList');
@@ -101,7 +247,7 @@ async function loadMessages(chatId) {
     }
 }
 
-// WebSocket соединение (не меняется, так как это WebSocket, а не HTTP)
+// WebSocket соединение
 function connectWebSocket(chatId) {
     if (ws) ws.close();
     
@@ -112,6 +258,10 @@ function connectWebSocket(chatId) {
         const data = JSON.parse(event.data);
         if (data.type === 'new_message') {
             addMessageToChat(data.message);
+            // Звук при получении сообщения через WebSocket (если чат не активен)
+            if (currentChatId !== data.message.chat_id) {
+                playNotificationSound();
+            }
         }
     };
     
@@ -128,13 +278,11 @@ function addMessageToChat(message) {
     const time = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const date = new Date(message.timestamp).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
     
-    // Получаем ссылку на аватар
     const avatarUrl = message.sender_id === currentUser.id 
-        ? currentUser.profileimage   // для себя
-        : message.sender_avatar;      // для других
+        ? currentUser.profileimage
+        : message.sender_avatar;
     
     if (message.sender_id === currentUser.id) {
-        // Исходящее сообщение (справа)
         messageContainer.className = 'outgoing';
         messageContainer.innerHTML = `
             <div class="message-info">
@@ -147,7 +295,6 @@ function addMessageToChat(message) {
             </div>
         `;
     } else {
-        // Входящее сообщение (слева)
         messageContainer.className = 'incoming';
         messageContainer.innerHTML = `
             <div class="message-info">
@@ -173,7 +320,7 @@ async function sendMessage() {
     if (!content || !currentChatId) return;
     
     try {
-        await fetch('/api/v1/messages', {  // ИСПРАВЛЕНО: добавлен /api/v1/
+        await fetch('/api/v1/messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -192,12 +339,9 @@ async function sendMessage() {
 function handleKeyPress(event) {
     if (event.key === 'Enter') {
         if (event.shiftKey) {
-            // Shift+Enter - новая строка
-            // Ничего не делаем, текст сам перенесется
             return;
         } else {
-            // Просто Enter - отправка сообщения
-            event.preventDefault();  // Отменяем переход на новую строку
+            event.preventDefault();
             sendMessage();
         }
     }
@@ -205,7 +349,7 @@ function handleKeyPress(event) {
 
 // Выход
 async function logout() {
-    await fetch('/api/v1/logout', { method: 'POST' });  // ИСПРАВЛЕНО: добавлен /api/v1/
+    await fetch('/api/v1/logout', { method: 'POST' });
     window.location.href = '/';
 }
 
@@ -216,20 +360,17 @@ const closeBtn = document.getElementById('closeDialog');
 const saveBtn = document.getElementById('saveAvatar');
 const avatarInput = document.getElementById('avatarUrl');
 
-// Открыть диалог при клике на аватар
 myavatar.addEventListener('click', () => {
-    avatarInput.value = currentUser.profileimage || ''; // текущий URL
+    avatarInput.value = currentUser.profileimage || '';
     dialog.showModal();
 });
 
-// Закрыть по кнопке Отмена
 closeBtn.addEventListener('click', () => {
     dialog.close();
 });
 
-// Сохранить
 saveBtn.addEventListener('click', async (e) => {
-    e.preventDefault(); // предотвращаем закрытие формы
+    e.preventDefault();
     
     const newAvatarUrl = avatarInput.value.trim();
     
@@ -239,7 +380,7 @@ saveBtn.addEventListener('click', async (e) => {
     }
     
     try {
-        const response = await fetch('/api/v1/update-avatar', {  // ИСПРАВЛЕНО: добавлен /api/v1/
+        const response = await fetch('/api/v1/update-avatar', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -252,11 +393,8 @@ saveBtn.addEventListener('click', async (e) => {
         const data = await response.json();
         
         if (data.success) {
-            // Обновляем на странице
             document.querySelector('#myavatar img').src = newAvatarUrl;
-            // Обновляем в объекте
             currentUser.profileimage = newAvatarUrl;
-            // Закрываем диалог
             dialog.close();
         } else {
             alert('Ошибка: ' + data.error);
@@ -267,7 +405,6 @@ saveBtn.addEventListener('click', async (e) => {
     }
 });
 
-// Закрыть по клику на backdrop
 dialog.addEventListener('click', (e) => {
     if (e.target === dialog) {
         dialog.close();
@@ -281,18 +418,15 @@ const closeNicknameBtn = document.getElementById('closeNicknameDialog');
 const saveNicknameBtn = document.getElementById('saveNickname');
 const nicknameInput = document.getElementById('nicknameInput');
 
-// Открыть диалог при клике на никнейм
 myname.addEventListener('click', () => {
     nicknameInput.value = currentUser.nickname || '';
     nicknameDialog.showModal();
 });
 
-// Закрыть по кнопке Отмена
 closeNicknameBtn.addEventListener('click', () => {
     nicknameDialog.close();
 });
 
-// Сохранить
 saveNicknameBtn.addEventListener('click', async (e) => {
     e.preventDefault();
     
@@ -304,7 +438,7 @@ saveNicknameBtn.addEventListener('click', async (e) => {
     }
     
     try {
-        const response = await fetch('/api/v1/update-nickname', {  // ИСПРАВЛЕНО: добавлен /api/v1/
+        const response = await fetch('/api/v1/update-nickname', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -317,11 +451,8 @@ saveNicknameBtn.addEventListener('click', async (e) => {
         const data = await response.json();
         
         if (data.success) {
-            // Обновляем на странице
             myname.textContent = newNickname;
-            // Обновляем в объекте
             currentUser.nickname = newNickname;
-            // Закрываем диалог
             nicknameDialog.close();
         } else {
             alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
@@ -332,7 +463,6 @@ saveNicknameBtn.addEventListener('click', async (e) => {
     }
 });
 
-// Закрыть по клику на backdrop
 nicknameDialog.addEventListener('click', (e) => {
     if (e.target === nicknameDialog) {
         nicknameDialog.close();
@@ -346,20 +476,18 @@ async function deleteChat(chatId) {
     }
     
     try {
-        const response = await fetch(`/api/v1/chats/${chatId}`, {  // ИСПРАВЛЕНО: добавлен /api/v1/
+        const response = await fetch(`/api/v1/chats/${chatId}`, {
             method: 'DELETE'
         });
         
         const data = await response.json();
         
         if (data.success) {
-            // Если удалили текущий открытый чат - очищаем
             if (currentChatId === chatId) {
                 currentChatId = null;
                 document.getElementById('messageInputArea').style.display = 'none';
                 document.getElementById('messagesList').innerHTML = '<div class="incoming">Выберите чат</div>';
             }
-            // Перезагружаем список чатов
             await loadChats();
         } else {
             alert('Ошибка: ' + (data.error || 'Не удалось удалить чат'));
@@ -385,8 +513,7 @@ async function compressImage(file, maxSizeMB = 2) {
                 let width = img.width;
                 let height = img.height;
                 
-                // Вычисляем новые размеры если изображение слишком большое
-                const maxDimension = 1920; // максимальный размер по большей стороне
+                const maxDimension = 1920;
                 if (width > height && width > maxDimension) {
                     height = Math.round((height * maxDimension) / width);
                     width = maxDimension;
@@ -399,24 +526,15 @@ async function compressImage(file, maxSizeMB = 2) {
                 canvas.height = height;
                 
                 const ctx = canvas.getContext('2d');
-                
-                // Заливаем белым фоном (для PNG с прозрачностью)
                 ctx.fillStyle = '#FFFFFF';
                 ctx.fillRect(0, 0, width, height);
-                
-                // Рисуем изображение поверх белого фона
                 ctx.drawImage(img, 0, 0, width, height);
                 
-                // Качество сжатия (начинаем с 0.9 и уменьшаем если нужно)
                 let quality = 0.9;
                 let compressedDataUrl;
                 
                 const compressWithQuality = () => {
-                    // Всегда конвертируем в JPEG
                     compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-                    
-                    // Приблизительный расчет размера из base64
-                    // Формула: размер в байтах = (длина строки * 3) / 4 - (количество символов = в конце)
                     const compressedSize = Math.round((compressedDataUrl.length * 3) / 4);
                     
                     console.log(`Попытка с качеством ${quality}: ${Math.round(compressedSize/1024)}KB`);
@@ -425,7 +543,6 @@ async function compressImage(file, maxSizeMB = 2) {
                         quality -= 0.1;
                         compressWithQuality();
                     } else {
-                        // Конвертируем DataURL в Blob
                         const byteString = atob(compressedDataUrl.split(',')[1]);
                         const ab = new ArrayBuffer(byteString.length);
                         const ia = new Uint8Array(ab);
@@ -435,8 +552,6 @@ async function compressImage(file, maxSizeMB = 2) {
                         }
                         
                         const blob = new Blob([ab], { type: 'image/jpeg' });
-                        
-                        // Создаем новое имя файла с расширением .jpg
                         const originalName = file.name.replace(/\.[^/.]+$/, "");
                         const compressedFile = new File([blob], `${originalName}.jpg`, { 
                             type: 'image/jpeg',
@@ -470,7 +585,7 @@ async function uploadImage(file) {
     formData.append('file', file);
     
     try {
-        const response = await fetch('/api/v1/upload/image', {  // ИСПРАВЛЕНО: добавлен /api/v1/
+        const response = await fetch('/api/v1/upload/image', {
             method: 'POST',
             body: formData
         });
@@ -490,13 +605,13 @@ async function uploadImage(file) {
 // Функция для отправки сообщения с изображением
 async function sendImageMessage(content, chatId) {
     try {
-        const response = await fetch('/api/v1/messages', {  // ИСПРАВЛЕНО: добавлен /api/v1/
+        const response = await fetch('/api/v1/messages', {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json' 
             },
             body: JSON.stringify({
-                content: content,  // Здесь будет HTML код с изображением
+                content: content,
                 chat_id: chatId
             })
         });
@@ -515,15 +630,7 @@ async function sendImageMessage(content, chatId) {
 
 // Функция создания HTML блока для изображения
 function createImageMessageBlock(imageUrl, filename) {
-    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const date = new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
-    
-    // Создаем HTML код для сообщения
-    const messageHTML = `
-                <img class="message-img" src="${imageUrl}" alt="${filename}">
-    `;
-    
-    return messageHTML;
+    return `<img class="message-img" src="${imageUrl}" alt="${filename}">`;
 }
 
 // Обновленная функция attachFile
@@ -534,7 +641,6 @@ async function attachFile() {
     }
     
     try {
-        // Создаем input для выбора файла
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
@@ -544,37 +650,20 @@ async function attachFile() {
             const file = event.target.files[0];
             if (!file) return;
             
-            // Проверяем, что это изображение
             if (!file.type.startsWith('image/')) {
                 alert('Пожалуйста, выберите изображение');
                 return;
             }
             
-            // Показываем индикатор загрузки
             showLoadingIndicator('Обработка изображения...');
             
             try {
-                // Сжимаем изображение (до 2MB)
                 const compressedFile = await compressImage(file, 2);
-                
                 updateLoadingStatus('Загрузка на сервер...');
-                
-                // Загружаем на сервер
                 const uploadResult = await uploadImage(compressedFile);
-                
                 updateLoadingStatus('Отправка сообщения...');
-                
-                // Создаем HTML для сообщения
-                const messageHTML = createImageMessageBlock(
-                    uploadResult.fileUrl, 
-                    compressedFile.name
-                );
-                
-                // Отправляем сообщение
+                const messageHTML = createImageMessageBlock(uploadResult.fileUrl, compressedFile.name);
                 await sendImageMessage(messageHTML, currentChatId);
-                
-                // Сообщение добавится через WebSocket, поэтому не нужно добавлять вручную
-                
             } catch (error) {
                 console.error('Ошибка:', error);
                 alert('Не удалось загрузить изображение: ' + error.message);
@@ -592,7 +681,6 @@ async function attachFile() {
 
 // Вспомогательные функции для индикации загрузки
 function showLoadingIndicator(message = 'Загрузка...') {
-    // Удаляем старый индикатор если есть
     hideLoadingIndicator();
     
     const indicator = document.createElement('div');
@@ -629,7 +717,6 @@ function showLoadingIndicator(message = 'Загрузка...') {
     indicator.appendChild(messageEl);
     document.body.appendChild(indicator);
     
-    // Добавляем стили для анимации
     if (!document.getElementById('spin-animation')) {
         const style = document.createElement('style');
         style.id = 'spin-animation';

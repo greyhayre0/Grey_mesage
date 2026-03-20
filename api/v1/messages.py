@@ -48,3 +48,33 @@ async def send_message(
     )
     
     return result
+
+@router.get("/messages/unread-counts")
+async def get_unread_counts(
+    user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Получить количество непрочитанных сообщений по каждому чату"""
+    if not user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    service = MessageService(db)
+    return service.get_unread_counts(user.id)
+
+@router.post("/messages/mark-chat-read/{chat_id}")
+async def mark_chat_as_read(
+    chat_id: int,
+    user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Отметить все сообщения в чате как прочитанные"""
+    if not user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    service = MessageService(db)
+    result = service.mark_chat_as_read(chat_id, user.id)
+    
+    if not result:
+        raise HTTPException(status_code=403, detail="Нет доступа к чату")
+    
+    return {"status": "success"}
