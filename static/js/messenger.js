@@ -259,6 +259,13 @@ function connectWebSocket(chatId) {
         console.error('WebSocket ошибка:', error);
     };
 }
+function checkWebSocket() {
+    if (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+        // Попытка переподключения
+        connectWebSocket(currentChatId);
+    }
+}
+setInterval(checkWebSocket, 5000); // проверяем каждые 5 секунд
 
 // Добавление нового сообщения в чат
 function addMessageToChat(message) {
