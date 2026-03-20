@@ -32,7 +32,7 @@ def delete_old_messages(db: Session, days: int = 7):
 
 def cleanup_task():
     """Функция для периодического запуска"""
-    from main import SessionLocal
+    from main_archive import SessionLocal
     db = SessionLocal()
     try:
         delete_old_messages(db)

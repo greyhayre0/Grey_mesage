@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Загрузка списка чатов
 async function loadChats() {
     try {
-        const response = await fetch('/api/chats');
+        const response = await fetch('/api/v1/chats');  // ИСПРАВЛЕНО: добавлен /api/v1/
         const chats = await response.json();
         
         const contactList = document.getElementById('contactList');
@@ -80,7 +80,7 @@ async function selectChat(chatId) {
 // Загрузка сообщений чата
 async function loadMessages(chatId) {
     try {
-        const response = await fetch(`/api/chats/${chatId}/messages`);
+        const response = await fetch(`/api/v1/chats/${chatId}/messages`);  // ИСПРАВЛЕНО: добавлен /api/v1/
         const messages = await response.json();
         
         const messagesList = document.getElementById('messagesList');
@@ -101,7 +101,7 @@ async function loadMessages(chatId) {
     }
 }
 
-// WebSocket соединение
+// WebSocket соединение (не меняется, так как это WebSocket, а не HTTP)
 function connectWebSocket(chatId) {
     if (ws) ws.close();
     
@@ -173,7 +173,7 @@ async function sendMessage() {
     if (!content || !currentChatId) return;
     
     try {
-        await fetch('/api/messages', {
+        await fetch('/api/v1/messages', {  // ИСПРАВЛЕНО: добавлен /api/v1/
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -205,15 +205,9 @@ function handleKeyPress(event) {
 
 // Выход
 async function logout() {
-    await fetch('/logout', { method: 'POST' });
+    await fetch('/api/v1/logout', { method: 'POST' });  // ИСПРАВЛЕНО: добавлен /api/v1/
     window.location.href = '/';
 }
-
-// Прикрепить файл
-//function attachFile() {
-//    alert('Функция прикрепления файлов будет добавлена позже');
-//}
-
 
 // Добавление аватарки
 const dialog = document.getElementById('avatarDialog');
@@ -245,7 +239,7 @@ saveBtn.addEventListener('click', async (e) => {
     }
     
     try {
-        const response = await fetch('/update-avatar', {
+        const response = await fetch('/api/v1/update-avatar', {  // ИСПРАВЛЕНО: добавлен /api/v1/
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -310,7 +304,7 @@ saveNicknameBtn.addEventListener('click', async (e) => {
     }
     
     try {
-        const response = await fetch('/api/update-nickname', {
+        const response = await fetch('/api/v1/update-nickname', {  // ИСПРАВЛЕНО: добавлен /api/v1/
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -345,7 +339,6 @@ nicknameDialog.addEventListener('click', (e) => {
     }
 });
 
-
 // Удаление чата
 async function deleteChat(chatId) {
     if (!confirm('Удалить чат? Все сообщения будут безвозвратно удалены.')) {
@@ -353,7 +346,7 @@ async function deleteChat(chatId) {
     }
     
     try {
-        const response = await fetch(`/api/chats/${chatId}`, {
+        const response = await fetch(`/api/v1/chats/${chatId}`, {  // ИСПРАВЛЕНО: добавлен /api/v1/
             method: 'DELETE'
         });
         
@@ -376,20 +369,6 @@ async function deleteChat(chatId) {
         alert('Ошибка при удалении');
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // Функция для сжатия изображения и конвертации в JPEG
 async function compressImage(file, maxSizeMB = 2) {
@@ -484,13 +463,14 @@ async function compressImage(file, maxSizeMB = 2) {
         };
     });
 }
+
 // Функция для загрузки файла на сервер
 async function uploadImage(file) {
     const formData = new FormData();
     formData.append('file', file);
     
     try {
-        const response = await fetch('/api/upload/image', {
+        const response = await fetch('/api/v1/upload/image', {  // ИСПРАВЛЕНО: добавлен /api/v1/
             method: 'POST',
             body: formData
         });
@@ -510,7 +490,7 @@ async function uploadImage(file) {
 // Функция для отправки сообщения с изображением
 async function sendImageMessage(content, chatId) {
     try {
-        const response = await fetch('/api/messages', {
+        const response = await fetch('/api/v1/messages', {  // ИСПРАВЛЕНО: добавлен /api/v1/
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json' 
@@ -548,6 +528,11 @@ function createImageMessageBlock(imageUrl, filename) {
 
 // Обновленная функция attachFile
 async function attachFile() {
+    if (!currentChatId) {
+        alert('Сначала выберите чат');
+        return;
+    }
+    
     try {
         // Создаем input для выбора файла
         const input = document.createElement('input');
@@ -585,7 +570,7 @@ async function attachFile() {
                     compressedFile.name
                 );
                 
-                // Отправляем сообщение через существующий API
+                // Отправляем сообщение
                 await sendImageMessage(messageHTML, currentChatId);
                 
                 // Сообщение добавится через WebSocket, поэтому не нужно добавлять вручную

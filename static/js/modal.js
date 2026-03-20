@@ -47,7 +47,7 @@ searchInput.oninput = async function() {
     }
 
     try {
-        const response = await fetch(`/api/users/search?query=${encodeURIComponent(query)}`);
+        const response = await fetch(`/api/v1/users/search?query=${encodeURIComponent(query)}`);
         const users = await response.json();
         
         if (users.length === 0) {
@@ -127,7 +127,7 @@ btnSave.onclick = async () => {
     }
 
     try {
-        const response = await fetch('/api/chats', {
+        const response = await fetch('/api/v1/chats', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
