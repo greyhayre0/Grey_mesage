@@ -505,14 +505,29 @@ nav > a:hover {
 
 /* Настройки картинки */
 .message-img {
-    max-width: auto;
-    max-height: 50vh;
+    max-width: 30vh;
+    max-height: 30vh;
     border-radius: 8px;
     cursor: pointer ;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     border: 2px solid transparent;
     object-fit: cover;
     display: inline-block;
+}
+/* Класс для режима полного экрана */
+.message-img.full-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    max-width: none;
+    max-height: none;
+    z-index: 9999;
+    border-radius: 0;
+    object-fit: contain;
+    background-color: rgba(0, 0, 0, 0.8); /* чтобы чуть затемнять фон */
+    cursor: zoom-out; /* чтобы было понятно, что кликом скрыть */
 }
 /* ========== МОДАЛЬНЫЕ ОКНА ========== */
 #myModal,

@@ -740,3 +740,12 @@ function hideLoadingIndicator() {
         indicator.remove();
     }
 }
+
+// Вешаем один обработчик на документ или контейнер чата
+document.addEventListener('DOMContentLoaded', () => {
+  document.body.addEventListener('click', (event) => {
+    if (event.target && event.target.classList.contains('message-img')) {
+      event.target.classList.toggle('full-screen');
+    }
+  });
+});
